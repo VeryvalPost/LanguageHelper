@@ -43,7 +43,7 @@ public class ExerciseTableRecord {
     @Column(name = "type", nullable = false, length = 50)
     private String type;
 
-    @Column(name = "created_text")
+    @Column(name = "created_text", columnDefinition = "TEXT")
     private String createdText;
 
     @Column(name = "questions_count")
