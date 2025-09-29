@@ -9,7 +9,7 @@ import { DatabaseExerciseUtils } from '../types/DatabaseExercise';
 export class ExerciseSaver {
   private static readonly PRIMARY_SAVE_ENDPOINT = '/api/exercise/save';
   private static readonly FALLBACK_SAVE_ENDPOINT = '/api/pdf/upload';
-  private static readonly BASE_URL = 'http://localhost:8080';
+  private static readonly BASE_URL = '/api';
   
   // Отслеживание уже сохраненных упражнений для предотвращения дублирования
   private static savedExercises = new Set<string>();

@@ -35,7 +35,7 @@ export default function TrueFalseExercise({ exercise, onExerciseLoaded, onReset 
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     try {
-      const response = await fetchWithAuth('http://localhost:8080/api/exercise/truefalse', {
+      const response = await fetchWithAuth('/api/exercise/truefalse', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

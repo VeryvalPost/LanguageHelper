@@ -26,7 +26,7 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
     formData.append('file', file);
   
     try {
-      const response = await fetchWithAuth('http://localhost:8080/api/pdf/upload', {
+      const response = await fetchWithAuth('/api/pdf/upload', {
         method: 'POST',
         body: formData,
         headers: {

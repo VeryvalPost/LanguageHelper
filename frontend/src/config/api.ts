@@ -11,7 +11,7 @@ export const API_CONFIG = {
    * Использует переменную окружения Vite (VITE_API_URL).
    * Если переменная не задана, используется значение по умолчанию для локальной разработки.
    */
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  BASE_URL: import.meta.env.VITE_API_URL || '/api',
 
   /**
    * Коллекция эндпоинтов API.
@@ -54,6 +54,5 @@ export const API_CONFIG = {
  * @returns Полный URL для запроса (например, 'http://localhost:8080/api/authenticate')
  */
 export const getApiUrl = (endpoint: string): string => {
-  return `${API_CONFIG.BASE_URL}${endpoint}`;
+  return `${API_CONFIG.BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 };
-

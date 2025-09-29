@@ -166,7 +166,7 @@ export async function createDragDropExercise() {
 export async function createAPIExercise() {
   try {
     const exercise = await generateAndSaveExercise(
-      'http://localhost:8080/api/exercise/generate',
+      '/api/exercise/generate',
       'Crossword',
       {
         topic: 'animals',
