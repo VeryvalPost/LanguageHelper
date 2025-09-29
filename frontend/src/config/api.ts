@@ -11,7 +11,7 @@ export const API_CONFIG = {
    * Использует переменную окружения Vite (VITE_API_URL).
    * Если переменная не задана, используется значение по умолчанию для локальной разработки.
    */
-  BASE_URL: import.meta.env.VITE_API_URL || '/api',
+  BASE_URL: import.meta.env.VITE_API_URL || '',
 
   /**
    * Коллекция эндпоинтов API.
