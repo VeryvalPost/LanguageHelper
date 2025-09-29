@@ -41,7 +41,7 @@ services:
     ports:
       - "80:80"  # ← СЛУШАЕМ НА ПОРТУ 80 (стандартный HTTP)
     environment:
-      - VITE_API_URL=http://95.81.126.8/api  # ← УКАЖИТЕ ВАШ IP
+      - VITE_API_URL=/api  
     depends_on:
       - app
     restart: unless-stopped
