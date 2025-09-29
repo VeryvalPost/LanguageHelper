@@ -5,9 +5,12 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+# Удаляем дефолтную конфигурацию
+RUN rm -rf /etc/nginx/conf.d/*
+# Копируем нашу исправленную конфигурацию
 COPY nginx.conf /etc/nginx/nginx.conf
+# Копируем собранные файлы из dist
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
