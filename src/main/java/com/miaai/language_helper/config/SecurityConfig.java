@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
                         .requestMatchers("/api/me","/api/pdf/**", "/api/exercise/**","/api/history/**").authenticated()
@@ -60,7 +61,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://localhost:80",
+                "http://95.81.126.8:80",
+                "http://95.81.126.8",
+                "https://95.81.126.8"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true); // Разрешаем credentials
