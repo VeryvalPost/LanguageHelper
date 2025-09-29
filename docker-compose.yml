@@ -39,7 +39,9 @@ services:
     build: ./frontend
     container_name: language-helper-frontend
     ports:
-      - "3000:80"
+      - "80:80"  # ← СЛУШАЕМ НА ПОРТУ 80 (стандартный HTTP)
+    environment:
+      - VITE_API_URL=http://95.81.126.8/api  # ← УКАЖИТЕ ВАШ IP
     depends_on:
       - app
     restart: unless-stopped
