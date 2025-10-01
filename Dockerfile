@@ -1,4 +1,3 @@
- Базовый образ с Java 17
 FROM eclipse-temurin:17-jdk-alpine
 
 # Устанавливаем Tesseract с поддержкой русского и английского языков
