@@ -1,27 +1,25 @@
-# Базовый образ с Java 17
+ Базовый образ с Java 17
 FROM eclipse-temurin:17-jdk-alpine
 
 # Устанавливаем Tesseract с поддержкой русского и английского языков
-# В Alpine нужно устанавливать правильные пакеты
 RUN apk update && apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
     tesseract-ocr-data-rus \
     curl
 
-# Устанавливаем переменную окружения для Tesseract
+# В Alpine Linux путь к Tesseract другой
 ENV TESSDATA_PREFIX=/usr/share/tessdata
 
-# Создаем симлинк на правильную папку
+# Создаем папку tessdata и копируем файлы
 RUN mkdir -p /usr/share/tessdata && \
-    ln -s /usr/share/tesseract-ocr/*/tessdata/* /usr/share/tessdata/ || true
+    cp -r /usr/share/tesseract-ocr/*/tessdata/* /usr/share/tessdata/ 2>/dev/null || true
 
 # Создаем отдельного пользователя и группу для безопасности
 RUN addgroup -S spring && adduser -S spring -G spring
 
-# Даем права на чтение tesseract файлов
-RUN chmod -R 755 /usr/share/tesseract-ocr/ && \
-    chmod -R 755 /usr/share/tessdata/
+# Даем права на чтение tessdata
+RUN chmod -R 755 /usr/share/tessdata/
 
 # Переключаемся на созданного пользователя
 USER spring
