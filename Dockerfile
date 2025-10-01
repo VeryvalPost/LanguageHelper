@@ -2,7 +2,7 @@
 FROM eclipse-temurin:17-jdk-alpine
 
 # Устанавливаем Tesseract с поддержкой русского и английского языков
-# В Alpine Linux пакеты называются по-другому
+# В Alpine нужно устанавливать правильные пакеты
 RUN apk update && apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
@@ -12,8 +12,16 @@ RUN apk update && apk add --no-cache \
 # Устанавливаем переменную окружения для Tesseract
 ENV TESSDATA_PREFIX=/usr/share/tessdata
 
+# Создаем симлинк на правильную папку
+RUN mkdir -p /usr/share/tessdata && \
+    ln -s /usr/share/tesseract-ocr/*/tessdata/* /usr/share/tessdata/ || true
+
 # Создаем отдельного пользователя и группу для безопасности
 RUN addgroup -S spring && adduser -S spring -G spring
+
+# Даем права на чтение tesseract файлов
+RUN chmod -R 755 /usr/share/tesseract-ocr/ && \
+    chmod -R 755 /usr/share/tessdata/
 
 # Переключаемся на созданного пользователя
 USER spring
@@ -27,7 +35,7 @@ COPY --chown=spring:spring target/*.jar app.jar
 # Открываем порт приложения
 EXPOSE 8080
 
-# Простой healthcheck (проверяет, что порт слушается)
+# Простой healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
