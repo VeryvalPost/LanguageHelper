@@ -1,35 +1,25 @@
-# Используем Ubuntu с Java 17
-FROM ubuntu:22.04
+# Используем официальный образ OpenJDK 17 с Ubuntu для лучшей совместимости
+FROM openjdk:17-jdk-slim
 
-# Устанавливаем Java 17 и Tesseract
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    software-properties-common
-
-# Добавляем репозиторий Oracle Java
-RUN wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | apt-key add - && \
-    echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list
-
-# Устанавливаем Java 17 и Tesseract
-RUN apt-get update && apt-get install -y \
-    temurin-17-jdk \
+# Устанавливаем Tesseract и необходимые зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-rus \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Устанавливаем переменную окружения для Tesseract
-ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
-
-# Создаем пользователя
+# Создаем пользователя и рабочие директории
 RUN groupadd -r spring && useradd -r -g spring spring
 
-USER spring
+# Создаем директорию для tessdata
+RUN mkdir -p /usr/share/tessdata && chown spring:spring /usr/share/tessdata
 
+USER spring
 WORKDIR /app
 
+# Копируем JAR файл
 COPY --chown=spring:spring target/*.jar app.jar
 
 EXPOSE 8080

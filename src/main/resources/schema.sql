@@ -1,9 +1,10 @@
-CREATE TABLE IF NOT EXISTS users(
-                                    id SERIAL PRIMARY KEY,
-                                    username VARCHAR(50) NOT NULL,
-                                    email VARCHAR(100) NOT NULL UNIQUE,
-                                    password VARCHAR(100) NOT NULL,
-                                    enabled BOOLEAN NOT NULL DEFAULT true
+-- schema.sql
+CREATE TABLE IF NOT EXISTS users (
+                                     id BIGSERIAL PRIMARY KEY, -- Изменено с SERIAL на BIGSERIAL для соответствия Long
+                                     username VARCHAR(50) NOT NULL,
+                                     email VARCHAR(100) NOT NULL UNIQUE,
+                                     password VARCHAR(100) NOT NULL,
+                                     enabled BOOLEAN NOT NULL DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS authorities (
@@ -14,13 +15,13 @@ CREATE TABLE IF NOT EXISTS authorities (
 );
 
 CREATE TABLE IF NOT EXISTS exercises (
-                                         id SERIAL PRIMARY KEY,
+                                         id BIGSERIAL PRIMARY KEY, -- Изменено с SERIAL на BIGSERIAL для соответствия Long
                                          uuid UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
                                          exercise_data JSONB NOT NULL,
                                          type VARCHAR(50) NOT NULL,
                                          created_text TEXT,
                                          questions_count INTEGER DEFAULT 0,
-                                         user_id INTEGER NOT NULL,
+                                         user_id BIGINT NOT NULL, -- Изменено с INTEGER на BIGINT для соответствия users.id
                                          is_public BOOLEAN DEFAULT FALSE,
                                          is_completed BOOLEAN DEFAULT FALSE,
                                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -39,19 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_exercises_metadata ON exercises USING GIN(metadat
 
 -- Индекс для полнотекстового поиска по created_text (опционально)
 CREATE INDEX IF NOT EXISTS idx_exercises_created_text ON exercises USING gin(to_tsvector('english', created_text));
-
--- Триггер для автоматического обновления updated_at
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-    RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_exercises_updated_at
-    BEFORE UPDATE ON exercises
-    FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
 

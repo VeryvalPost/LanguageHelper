@@ -16,21 +16,20 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "username")
     private String username;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(name = "email")
     private String email;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "password")
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "enabled")
     private boolean enabled;
 
     public void addAuthority(String authorityName) {
