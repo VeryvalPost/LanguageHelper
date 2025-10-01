@@ -23,11 +23,12 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_JPA_HIBERNATE_DDL_AUTO: create  # ← ИЗМЕНИТЕ НА create
-      SPRING_SQL_INIT_MODE: always
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate  # ← ИЗМЕНИТЕ НА validate
+      SPRING_SQL_INIT_MODE: never              # ← ИЗМЕНИТЕ НА never
       API_KEY: ${API_KEY}
       JWT_SECRET: ${JWT_SECRET}
       SPRING_SECURITY_USER_PASSWORD: ${ADMIN_PASSWORD}
+      TESSDATA_PREFIX: /usr/share/tessdata
     ports:
       - "8080:8080"
     depends_on:
@@ -39,9 +40,9 @@ services:
     build: ./frontend
     container_name: language-helper-frontend
     ports:
-      - "80:80"  # ← СЛУШАЕМ НА ПОРТУ 80 (стандартный HTTP)
+      - "80:80"
     environment:
-      - VITE_API_URL=/api  
+      - VITE_API_URL=/api
     depends_on:
       - app
     restart: unless-stopped
