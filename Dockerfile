@@ -1,42 +1,42 @@
-FROM eclipse-temurin:17-jdk-alpine
+# Используем Ubuntu с Java 17
+FROM ubuntu:22.04
 
-# Устанавливаем Tesseract с поддержкой русского и английского языков
-RUN apk update && apk add --no-cache \
+# Устанавливаем Java 17 и Tesseract
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    software-properties-common
+
+# Добавляем репозиторий Oracle Java
+RUN wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | apt-key add - && \
+    echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list
+
+# Устанавливаем Java 17 и Tesseract
+RUN apt-get update && apt-get install -y \
+    temurin-17-jdk \
     tesseract-ocr \
-    tesseract-ocr-data-eng \
-    tesseract-ocr-data-rus \
-    curl
+    tesseract-ocr-eng \
+    tesseract-ocr-rus \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# В Alpine Linux путь к Tesseract другой
-ENV TESSDATA_PREFIX=/usr/share/tessdata
+# Устанавливаем переменную окружения для Tesseract
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
 
-# Создаем папку tessdata и копируем файлы
-RUN mkdir -p /usr/share/tessdata && \
-    cp -r /usr/share/tesseract-ocr/*/tessdata/* /usr/share/tessdata/ 2>/dev/null || true
+# Создаем пользователя
+RUN groupadd -r spring && useradd -r -g spring spring
 
-# Создаем отдельного пользователя и группу для безопасности
-RUN addgroup -S spring && adduser -S spring -G spring
-
-# Даем права на чтение tessdata
-RUN chmod -R 755 /usr/share/tessdata/
-
-# Переключаемся на созданного пользователя
 USER spring
 
-# Рабочая директория
 WORKDIR /app
 
-# Копируем JAR файл с правильными правами
 COPY --chown=spring:spring target/*.jar app.jar
 
-# Открываем порт приложения
 EXPOSE 8080
 
-# Простой healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
-# Оптимизированные параметры запуска JVM в контейнере
 ENTRYPOINT ["java", "-jar", \
     "-Djava.security.egd=file:/dev/./urandom", \
     "-XX:+UseContainerSupport", \
