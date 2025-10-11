@@ -155,10 +155,15 @@ public class ExerciseController {
     }
 
     @GetMapping("/truefalse")
-    public ResponseEntity<?>  createTrueFalseText(Authentication authentication) {
+    public ResponseEntity<?> createTrueFalseText(
+            @RequestParam String level,
+            @RequestParam String age,
+            @RequestParam String topic,
+            Authentication authentication) {
         try {
             String email = authentication.getName();
-            log.info("Creating True/False exercise for user email: {}", email);
+            log.info("Creating True/False exercise for user email: {}, level: {}, age: {}, topic: {}",
+                    email, level, age, topic);
             Optional<User> userOpt = userRepository.findByEmail(email);
             if (userOpt.isEmpty()) {
                 log.warn("User not found for email: {}", email);
@@ -166,12 +171,17 @@ public class ExerciseController {
             }
             User user = userOpt.get();
 
-            GenerationExerciseDto createdText = gptRequestService.createText(ExerciseType.TRUEFALSE, user);
+            // Передаем параметры в сервис
+            GenerationExerciseDto createdText = gptRequestService.createTrueFalseWithParams(
+                    ExerciseType.TRUEFALSE, user, level, age, topic);
+
             log.info("Created True/False exercise text for user {}: {}", user.getEmail(), createdText);
             return ResponseEntity.ok(createdText);
         } catch (Exception e) {
             log.error("Error creating True/False exercise", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to create exercise: " + e.getMessage()));
         }
     }
 }
+

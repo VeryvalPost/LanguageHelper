@@ -113,6 +113,7 @@ public class GptRequestService {
         String prompt = """
                 Очистить текст от артефактов распознавания.
                 Определить тип упражнения. 
+                Нужно найти логическое начало и конец упражнения. Тебя интересует исключительно упражнение определенного типа. Всё что находится на странице помимо искомого упражнения - можно отбросить и не обращать внимание.
                 Строго следуй структуре JSON файла. Не придумывай дополнительных полей. Используй названия полей как в примере.
                 Тип упражнения может быть либо "Fill The Gaps", либо "Match The Sentence", в зависимости от структуры распознанного текста. Обязательно заполни поле type соответствующим типом.
                 Не дублируй поля два раза. проследи, чтоб JSON мог корректно сериализоваться. 
@@ -185,7 +186,7 @@ public class GptRequestService {
         }
     }
 
-    public GenerationExerciseDto createText(ExerciseType exerciseType, User user) {
+    public GenerationExerciseDto createTrueFalseWithParams(ExerciseType exerciseType, User user, String level, String age, String topic) {
         if (exerciseType == null) {
             throw new IllegalArgumentException("Exercise type must not be null");
         }
@@ -211,7 +212,7 @@ public class GptRequestService {
                         { "question": "вопрос2 к тексту", "answer": "FALSE" }
                       ]
                     }
-                    """;
+                    """ + "Уровень знаний ученика должен соответствовать общепринятому уровню:" + level + ". Возраст ученика: "+ age + ".Тематика текста для создания: " + topic + ". Пожалуйста при создании ориентируйся на эти параметры.";
                 dtoClass = TrueFalseGenerationDto.class;
             }
             // Можно добавить дополнительные случаи для других типов упражнений:

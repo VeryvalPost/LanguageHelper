@@ -1,4 +1,4 @@
-package com.miaai.language_helper.service;  // ← Укажи свой пакет, если другой
+package com.miaai.language_helper.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +15,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
+import javax.imageio.ImageIO;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,25 +40,39 @@ public class PdfOcrService {
     @Value("${ocr.max-image-height:1200}")
     private int maxImageHeight;
 
+    // Поддерживаемые форматы изображений
+    private static final List<String> SUPPORTED_IMAGE_FORMATS = Arrays.asList(
+            "jpg", "jpeg", "png", "bmp", "gif", "tiff", "tif"
+    );
+
     public String extractText(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            log.warn("Empty or null PDF file provided");
+            log.warn("Empty or null file provided");
             return "";
         }
 
-        log.info("Processing PDF: {} ({} bytes)", file.getOriginalFilename(), file.getSize());
+        String filename = file.getOriginalFilename();
+        log.info("Processing file: {} ({} bytes)", filename, file.getSize());
 
         File tempFile = null;
         try {
-            // Создаем временный файл чтобы освободить память от MultipartFile
-            tempFile = File.createTempFile("ocr_", ".pdf");
+            // Создаем временный файл
+            String extension = getFileExtension(filename);
+            tempFile = File.createTempFile("ocr_", "." + extension);
             file.transferTo(tempFile);
 
-            return extractTextFromFile(tempFile);
+            // Определяем тип файла и обрабатываем соответствующим образом
+            if (isPdfFile(filename)) {
+                return extractTextFromPdf(tempFile);
+            } else if (isImageFile(filename)) {
+                return extractTextFromImage(tempFile);
+            } else {
+                throw new IllegalArgumentException("Unsupported file format: " + filename);
+            }
 
         } catch (IOException e) {
-            log.error("IO error during PDF processing: {}", e.getMessage());
-            throw new RuntimeException("Ошибка при загрузке PDF: " + e.getMessage(), e);
+            log.error("IO error during file processing: {}", e.getMessage());
+            throw new RuntimeException("Ошибка при загрузке файла: " + e.getMessage(), e);
         } finally {
             // Всегда удаляем временный файл
             if (tempFile != null && tempFile.exists()) {
@@ -66,7 +83,7 @@ public class PdfOcrService {
         }
     }
 
-    private String extractTextFromFile(File pdfFile) {
+    private String extractTextFromPdf(File pdfFile) {
         StringBuilder result = new StringBuilder();
 
         try (PDDocument document = PDDocument.load(pdfFile)) {
@@ -84,7 +101,7 @@ public class PdfOcrService {
 
             for (int page = 0; page < pagesToProcess; ++page) {
                 try {
-                    String pageText = processPage(pdfRenderer, page);
+                    String pageText = processPdfPage(pdfRenderer, page);
                     result.append(pageText).append("\n\n--- Page ").append(page + 1).append(" ---\n\n");
                     log.debug("Extracted {} chars from page {}", pageText.length(), page + 1);
 
@@ -109,7 +126,41 @@ public class PdfOcrService {
         return result.toString().trim();
     }
 
-    private String processPage(PDFRenderer pdfRenderer, int pageNumber) {
+    private String extractTextFromImage(File imageFile) {
+        try {
+            log.info("Processing image file: {}", imageFile.getName());
+
+            // Читаем изображение
+            BufferedImage image = ImageIO.read(imageFile);
+            if (image == null) {
+                throw new IllegalArgumentException("Cannot read image file or unsupported format");
+            }
+
+            // Оптимизируем изображение
+            BufferedImage optimizedImage = optimizeImageForOcr(image);
+
+            // Выполняем OCR
+            Tesseract tesseract = createTesseractInstance();
+            String result = tesseract.doOCR(optimizedImage);
+
+            log.info("Image OCR completed: {} chars extracted", result.length());
+
+            // Освобождаем ресурсы
+            image.flush();
+            optimizedImage.flush();
+
+            return result.trim();
+
+        } catch (IOException e) {
+            log.error("Error reading image file: {}", e.getMessage());
+            throw new RuntimeException("Ошибка при чтении изображения", e);
+        } catch (TesseractException e) {
+            log.error("Tesseract OCR error on image: {}", e.getMessage());
+            throw new RuntimeException("Ошибка OCR при обработке изображения", e);
+        }
+    }
+
+    private String processPdfPage(PDFRenderer pdfRenderer, int pageNumber) {
         BufferedImage image = null;
         try {
             // Рендерим страницу с оптимизированным DPI
@@ -133,6 +184,31 @@ public class PdfOcrService {
                 image.flush();
             }
         }
+    }
+
+    private BufferedImage optimizeImageForOcr(BufferedImage originalImage) {
+        BufferedImage resizedImage = resizeImageIfNeeded(originalImage);
+
+        // Дополнительная оптимизация для улучшения качества OCR
+        BufferedImage optimizedImage = new BufferedImage(
+                resizedImage.getWidth(),
+                resizedImage.getHeight(),
+                BufferedImage.TYPE_BYTE_GRAY
+        );
+
+        Graphics2D g = optimizedImage.createGraphics();
+        try {
+            g.drawImage(resizedImage, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+
+        // Освобождаем промежуточное изображение
+        if (resizedImage != originalImage) {
+            resizedImage.flush();
+        }
+
+        return optimizedImage;
     }
 
     private Tesseract createTesseractInstance() {
@@ -177,5 +253,28 @@ public class PdfOcrService {
         }
 
         return resizedImage;
+    }
+
+    // Вспомогательные методы для определения типа файла
+    private boolean isPdfFile(String filename) {
+        return filename != null && filename.toLowerCase().endsWith(".pdf");
+    }
+
+    private boolean isImageFile(String filename) {
+        if (filename == null) return false;
+        String extension = getFileExtension(filename).toLowerCase();
+        return SUPPORTED_IMAGE_FORMATS.contains(extension);
+    }
+
+    private String getFileExtension(String filename) {
+        if (filename == null || !filename.contains(".")) {
+            return "";
+        }
+        return filename.substring(filename.lastIndexOf(".") + 1).toLowerCase();
+    }
+
+    // Дополнительный метод для проверки поддерживаемых форматов
+    public List<String> getSupportedFormats() {
+        return Arrays.asList("pdf", "jpg", "jpeg", "png", "bmp", "gif", "tiff", "tif");
     }
 }

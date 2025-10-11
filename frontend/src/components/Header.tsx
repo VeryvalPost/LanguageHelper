@@ -13,7 +13,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-gray-800">
-              Система упражнений
+              Exercise Creator
             </h1>
             <span className="text-gray-500">|</span>
             <span className="text-gray-600">

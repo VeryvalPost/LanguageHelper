@@ -8,23 +8,53 @@ interface PDFUploadProps {
   onCreateTrueFalseExercise?: () => void;
 }
 
+const STUDENT_LEVELS = [
+  { label: 'A1 (Beginner)', value: 'A1' },
+  { label: 'A2 (Elementary/Pre-Intermediate)', value: 'A2' },
+  { label: 'B1 (Intermediate)', value: 'B1' },
+  { label: 'B2 (Upper Intermediate)', value: 'B2' },
+  { label: 'C1 (Advanced)', value: 'C1' },
+  { label: 'C2 (Proficiency)', value: 'C2' }
+];
+const STUDENT_AGES = [
+  { label: 'Ребенок', value: 'child' },
+  { label: 'Подросток', value: 'teen' },
+  { label: 'Взрослый', value: 'adult' }
+];
+
 export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise }: PDFUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [studentLevel, setStudentLevel] = useState('A2');
+  const [studentAge, setStudentAge] = useState('adult');
+  const [topic, setTopic] = useState('');
 
-  const uploadPDF = async (file: File) => {
-    if (file.type !== 'application/pdf') {
-      setError('Пожалуйста, выберите PDF-файл');
+  const uploadFile = async (file: File) => {
+    const allowedTypes = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+      'image/bmp',
+      'image/gif',
+      'image/tiff',
+      'image/x-tiff',
+    ];
+    const allowedExts = ['.pdf','.jpg','.jpeg','.png','.bmp','.gif','.tiff','.tif'];
+    // Проверка по type или по name (для старых браузеров или edge-случаев)
+    const isAllowed = allowedTypes.includes(file.type) || allowedExts.some(ext => file.name.toLowerCase().endsWith(ext));
+    if (!isAllowed) {
+      setError('Пожалуйста, выберите файл: PDF, JPG, JPEG, PNG, BMP, GIF, TIFF, TIF');
       return;
     }
-  
     setIsUploading(true);
     setError(null);
-  
+
     const formData = new FormData();
     formData.append('file', file);
-  
+
     try {
       const response = await fetchWithAuth('/api/pdf/upload', {
         method: 'POST',
@@ -33,29 +63,46 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
           'Accept': 'application/json'
         }
       });
-  
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Ошибка загрузки: ${response.status} ${errorText}`);
       }
-  
+
       const exercise: Exercise = await response.json();
-      
-      // Бэкенд уже сохраняет упражнение при загрузке PDF, поэтому
-      // дополнительное сохранение не требуется, чтобы избежать дублирования
-      // Если нужно принудительно сохранить, используйте:
-      // await ExerciseSaver.saveExerciseWithContext(exercise, {
-      //   source: 'pdf-upload',
-      //   metadata: {
-      //     fileName: file.name,
-      //     fileSize: file.size,
-      //     uploadedAt: new Date().toISOString()
-      //   }
-      // });
-      
       onExerciseLoaded(exercise);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка загрузки');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCreateExercise = async () => {
+    if (!topic.trim()) {
+      setError('Пожалуйста, введите тему для упражнения');
+      return;
+    }
+    setIsUploading(true);
+    setError(null);
+    const params = new URLSearchParams({
+      level: studentLevel,
+      age: studentAge,
+      topic
+    });
+    try {
+      const response = await fetchWithAuth(`/api/exercise/truefalse?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ошибка создания: ${response.status} ${errorText}`);
+      }
+      const exercise: Exercise = await response.json();
+      onExerciseLoaded(exercise);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Ошибка создания');
     } finally {
       setIsUploading(false);
     }
@@ -77,28 +124,28 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      uploadPDF(e.dataTransfer.files[0]);
+      uploadFile(e.dataTransfer.files[0]);
     }
   }, []);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      uploadPDF(e.target.files[0]);
+      uploadFile(e.target.files[0]);
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Блок 1: Загрузка PDF или изображения */}
       <div className="text-center mb-8">
         <FileText className="mx-auto h-16 w-16 text-blue-500 mb-4" />
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Exercise Helper
+          MIA.AI Exercise Creator
         </h1>
         <p className="text-gray-600">
-          Upload a PDF file to generate an interactive exercise
+          Upload a PDF or image file (PDF, JPG, JPEG, PNG, BMP, GIF, TIFF, TIF) to generate an interactive exercise
         </p>
       </div>
-
       <div
         className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ${
           dragActive
@@ -112,17 +159,16 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
       >
         <input
           type="file"
-          accept=".pdf"
+          accept=".pdf,.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif"
           onChange={handleFileInput}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           disabled={isUploading}
         />
-
         {isUploading ? (
           <div className="flex flex-col items-center">
             <Loader2 className="h-12 w-12 text-blue-500 animate-spin mb-4" />
             <p className="text-lg font-medium text-gray-700">
-              Processing PDF...
+              Processing file...
             </p>
             <p className="text-sm text-gray-500">
               This may take a few moments
@@ -132,31 +178,67 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
           <div className="flex flex-col items-center">
             <Upload className="h-12 w-12 text-gray-400 mb-4" />
             <p className="text-lg font-medium text-gray-700 mb-2">
-              {dragActive ? 'Drop your PDF here' : 'Upload your PDF file'}
+              {dragActive ? 'Drop your PDF or image here' : 'Upload your PDF or image file'}
             </p>
             <p className="text-sm text-gray-500">
-              Drag and drop or click to select
+              Drag and drop or click to select (PDF, JPG, JPEG, PNG, BMP, GIF, TIFF, TIF)
             </p>
           </div>
         )}
       </div>
-
       {error && (
         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-700 font-medium">Error: {error}</p>
         </div>
       )}
-      {/* Кнопка создания нового упражнения */}
-      {onCreateTrueFalseExercise && (
-        <div className="mt-8 flex justify-center">
+      {/* Разделительная линия */}
+      <div className="relative flex items-center my-10">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="mx-4 text-gray-400">или</span>
+        <div className="flex-grow border-t border-gray-300"></div>
+      </div>
+      {/* Блок 2: Создание собственного упражнения */}
+      <div className="mb-10 border rounded-xl bg-white/60 p-8 shadow flex flex-col gap-6">
+        <h2 className="text-2xl font-semibold mb-2 text-center ">Создать собственный текст для упражнения</h2>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm text-gray-700 mb-1 font-medium">Уровень студента</label>
+            <select
+              className="border rounded px-3 py-2 w-full focus:outline-blue-400"
+              value={studentLevel}
+              onChange={e => setStudentLevel(e.target.value)}>
+              {STUDENT_LEVELS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm text-gray-700 mb-1 font-medium">Возраст студента</label>
+            <select
+              className="border rounded px-3 py-2 w-full focus:outline-blue-400"
+              value={studentAge}
+              onChange={e => setStudentAge(e.target.value)}>
+              {STUDENT_AGES.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1 font-medium">Тема</label>
+          <input
+            className="border rounded px-3 py-2 w-full focus:outline-blue-400"
+            type="text"
+            value={topic}
+            placeholder="Введите тему/контекст для упражнения"
+            onChange={e => setTopic(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-center mt-2">
           <button
-            onClick={onCreateTrueFalseExercise}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            Create new exercise True/False type
+            onClick={handleCreateExercise}
+            disabled={isUploading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60">
+            Создать упражнение True/False
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
