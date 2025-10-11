@@ -110,6 +110,7 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
+        
       });
 
       console.log('Response status:', response.status);
