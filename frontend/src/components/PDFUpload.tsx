@@ -70,6 +70,7 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
       }
 
       const exercise: Exercise = await response.json();
+      await import("../utils/ExerciseSaver").then(({ ExerciseSaver }) => ExerciseSaver.saveExerciseWithContext(exercise, { source: 'api-generation' }));
       onExerciseLoaded(exercise);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка загрузки');
@@ -100,6 +101,38 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
         throw new Error(`Ошибка создания: ${response.status} ${errorText}`);
       }
       const exercise: Exercise = await response.json();
+      await import("../utils/ExerciseSaver").then(({ ExerciseSaver }) => ExerciseSaver.saveExerciseWithContext(exercise, { source: 'api-generation' }));
+      onExerciseLoaded(exercise);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Ошибка создания');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCreateExerciseByType = async (endpoint: string) => {
+    if (!topic.trim()) {
+      setError('Пожалуйста, введите тему для упражнения');
+      return;
+    }
+    setIsUploading(true);
+    setError(null);
+    const params = new URLSearchParams({
+      level: studentLevel,
+      age: studentAge,
+      topic
+    });
+    try {
+      const response = await fetchWithAuth(`${endpoint}?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ошибка создания: ${response.status} ${errorText}`);
+      }
+      const exercise: Exercise = await response.json();
+      await import("../utils/ExerciseSaver").then(({ ExerciseSaver }) => ExerciseSaver.saveExerciseWithContext(exercise, { source: 'api-generation' }));
       onExerciseLoaded(exercise);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания');
@@ -230,12 +263,30 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
             onChange={e => setTopic(e.target.value)}
           />
         </div>
-        <div className="flex justify-center mt-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 justify-center mt-2 flex-wrap">
           <button
-            onClick={handleCreateExercise}
+            onClick={() => handleCreateExerciseByType('/api/exercise/truefalse')}
             disabled={isUploading}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60">
             Создать упражнение True/False
+          </button>
+          <button
+            onClick={() => handleCreateExerciseByType('/api/exercise/abcd')}
+            disabled={isUploading}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-60">
+            Создать ABCD questions по тексту
+          </button>
+          <button
+            onClick={() => handleCreateExerciseByType('/api/exercise/open')}
+            disabled={isUploading}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-60">
+            Создать Open questions по тексту
+          </button>
+          <button
+            onClick={() => handleCreateExerciseByType('/api/exercise/dialogue')}
+            disabled={isUploading}
+            className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-60">
+            Создать диалог на любую тему
           </button>
         </div>
       </div>

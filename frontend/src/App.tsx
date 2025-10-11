@@ -13,6 +13,10 @@ import { getCurrentUser, logoutUser, isAuthenticated } from './utils/api';
 import { FileText, ListChecks, HelpCircle, Copy, CheckCircle, Lock, Unlock } from 'lucide-react';
 import { fetchWithAuth } from './utils/fetchWithAuth';
 import { API_CONFIG, getApiUrl } from './config/api';
+import ABCDExercise from './components/ABCDExercise';
+import OpenQuestionsExercise from './components/OpenQuestionsExercise';
+import DialogueExercise from './components/DialogueExercise';
+import { ExerciseSaver } from './utils/ExerciseSaver';
 
 
 function App() {
@@ -37,9 +41,11 @@ function App() {
     logoutUser();
   };
 
-  const handleExerciseLoaded = (loadedExercise: Exercise) => {
+  const handleExerciseLoaded = async (loadedExercise: Exercise) => {
     setExercise(loadedExercise);
     setShowTrueFalse(false);
+    // Автосохраняем каждое сгенерированное упражнение (для истории)
+    await ExerciseSaver.saveExerciseWithContext(loadedExercise, { source: 'api-generation' });
   };
 
   const handleReset = () => {
@@ -351,6 +357,12 @@ const handleOpenAssignment = async (uuid: string) => {
             <MatchTheSentenceExercise exercise={exercise} onReset={handleReset} />
           ) : exercise.type === "True/False" ? (
             <TrueFalseExercise exercise={exercise} onReset={handleReset} />
+          ) : exercise.type === "ABCD" ? (
+            <ABCDExercise exercise={exercise} onReset={handleReset} />
+          ) : exercise.type === "Open Questions" ? (
+            <OpenQuestionsExercise exercise={exercise} onReset={handleReset} />
+          ) : exercise.type === "Dialogue" ? (
+            <DialogueExercise exercise={exercise} onReset={handleReset} />
           ) : (
             <div className="text-center text-red-600 font-bold">
               Неизвестный тип упражнения: {exercise.type}

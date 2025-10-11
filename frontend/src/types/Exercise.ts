@@ -1,3 +1,12 @@
+/**
+ * type: может быть одним из:
+ *  - 'True/False'
+ *  - 'ABCD'
+ *  - 'Open Questions'
+ *  - 'Dialogue'
+ *  - 'Fill The Gaps'
+ *  - 'Match The Sentence'
+ */
 export interface Exercise {
   type: string;
   questions: string[];

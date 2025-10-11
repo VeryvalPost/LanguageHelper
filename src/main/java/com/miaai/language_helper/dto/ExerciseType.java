@@ -7,7 +7,10 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum ExerciseType {
     FILLTHEGAP("Fill The Gaps"),
     TRUEFALSE("True/False"),
-    MATCHTHESENTENCE("Match The Sentence");
+    MATCHTHESENTENCE("Match The Sentence"),
+    ABCD("ABCD"),
+    OPENQUESTIONS("Open Questions"),
+    DIALOGUE("Dialogue");
 
     private final String name;
 

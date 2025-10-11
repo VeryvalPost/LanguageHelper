@@ -60,7 +60,7 @@ public class ExerciseController {
 
             return ResponseEntity.ok(Map.of(
                     "message", "Exercise saved successfully",
-                    "uuid", exerciseRecord.getUuidAsString()  // ← Используем transient геттер для строки
+                    "uuid", exerciseRecord.getUuidAsString()
             ));
 
         } catch (Exception e) {
@@ -70,22 +70,23 @@ public class ExerciseController {
         }
     }
 
+    // Метод convertToExerciseDto нужно обновить для поддержки новых типов упражнений
     private ExerciseDto convertToExerciseDto(ExerciseSaveRequest request) {
         switch (request.getType()) {
             case "True/False":
                 TrueFalseGenerationDto trueFalseDto = TrueFalseGenerationDto.builder()
-                        .type("True/False")  // ← Добавил: для JSON и схемы БД
+                        .type("True/False")
                         .createdText(request.getCreatedText())
                         .questions(request.getQuestions())
                         .answers(request.getAnswers())
                         .dictionary(convertCreationDictionary(request.getDictionary()))
-                        .metadata(request.getMetadata())  // Если есть в request
+                        .metadata(request.getMetadata())
                         .build();
-                return trueFalseDto;  // Автоматически полиморфно в ExerciseDto
+                return trueFalseDto;
 
             case "Fill The Gaps":
                 return FillTheGapsResponseDto.builder()
-                        .type("Fill The Gaps")  // ← Добавил, если нужно для JSON (но в DTO убрано, чтобы избежать дубля)
+                        .type("Fill The Gaps")
                         .questions(request.getQuestions())
                         .answers(request.getAnswers())
                         .dictionary(convertFillTheGapsDictionary(request.getDictionary()))
@@ -95,11 +96,44 @@ public class ExerciseController {
 
             case "Match The Sentence":
                 return MatchTheSentenceResponseDto.builder()
-                        .type("Match The Sentence")  // ← Аналогично
+                        .type("Match The Sentence")
                         .questions(request.getQuestions())
                         .answers(request.getAnswers())
                         .dictionary(convertMatchTheSentenceDictionary(request.getDictionary()))
                         .createdText(request.getCreatedText())
+                        .metadata(request.getMetadata())
+                        .build();
+
+            case "ABCD":
+                // Создаем DTO для ABCD упражнений
+                return TrueFalseGenerationDto.builder()
+                        .type("ABCD")
+                        .createdText(request.getCreatedText())
+                        .questions(request.getQuestions())
+                        .answers(request.getAnswers())
+                        .dictionary(convertCreationDictionary(request.getDictionary()))
+                        .metadata(request.getMetadata())
+                        .build();
+
+            case "Open Questions":
+                // Создаем DTO для Open Questions упражнений
+                return TrueFalseGenerationDto.builder()
+                        .type("Open Questions")
+                        .createdText(request.getCreatedText())
+                        .questions(request.getQuestions())
+                        .answers(request.getAnswers())
+                        .dictionary(convertCreationDictionary(request.getDictionary()))
+                        .metadata(request.getMetadata())
+                        .build();
+
+            case "Dialogue":
+                // Создаем DTO для Dialogue упражнений
+                return TrueFalseGenerationDto.builder()
+                        .type("Dialogue")
+                        .createdText(request.getCreatedText())
+                        .questions(request.getQuestions())
+                        .answers(request.getAnswers())
+                        .dictionary(convertCreationDictionary(request.getDictionary()))
                         .metadata(request.getMetadata())
                         .build();
 
@@ -154,16 +188,48 @@ public class ExerciseController {
         }).collect(Collectors.toList());
     }
 
+
     @GetMapping("/truefalse")
     public ResponseEntity<?> createTrueFalseText(
             @RequestParam String level,
             @RequestParam String age,
             @RequestParam String topic,
             Authentication authentication) {
+        return createExercise(ExerciseType.TRUEFALSE, level, age, topic, authentication);
+    }
+
+    @GetMapping("/abcd")
+    public ResponseEntity<?> createABCDExercise(
+            @RequestParam String level,
+            @RequestParam String age,
+            @RequestParam String topic,
+            Authentication authentication) {
+        return createExercise(ExerciseType.ABCD, level, age, topic, authentication);
+    }
+
+    @GetMapping("/open")
+    public ResponseEntity<?> createOpenQuestionsExercise(
+            @RequestParam String level,
+            @RequestParam String age,
+            @RequestParam String topic,
+            Authentication authentication) {
+        return createExercise(ExerciseType.OPENQUESTIONS, level, age, topic, authentication);
+    }
+
+    @GetMapping("/dialogue")
+    public ResponseEntity<?> createDialogueExercise(
+            @RequestParam String level,
+            @RequestParam String age,
+            @RequestParam String topic,
+            Authentication authentication) {
+        return createExercise(ExerciseType.DIALOGUE, level, age, topic, authentication);
+    }
+
+    private ResponseEntity<?> createExercise(ExerciseType exerciseType, String level, String age, String topic, Authentication authentication) {
         try {
             String email = authentication.getName();
-            log.info("Creating True/False exercise for user email: {}, level: {}, age: {}, topic: {}",
-                    email, level, age, topic);
+            log.info("Creating {} exercise for user email: {}, level: {}, age: {}, topic: {}",
+                    exerciseType.getName(), email, level, age, topic);
             Optional<User> userOpt = userRepository.findByEmail(email);
             if (userOpt.isEmpty()) {
                 log.warn("User not found for email: {}", email);
@@ -171,14 +237,13 @@ public class ExerciseController {
             }
             User user = userOpt.get();
 
-            // Передаем параметры в сервис
-            GenerationExerciseDto createdText = gptRequestService.createTrueFalseWithParams(
-                    ExerciseType.TRUEFALSE, user, level, age, topic);
+            GenerationExerciseDto createdExercise = gptRequestService.createExerciseWithParams(
+                    exerciseType, user, level, age, topic);
 
-            log.info("Created True/False exercise text for user {}: {}", user.getEmail(), createdText);
-            return ResponseEntity.ok(createdText);
+            log.info("Created {} exercise for user {}: {}", exerciseType.getName(), user.getEmail(), createdExercise);
+            return ResponseEntity.ok(createdExercise);
         } catch (Exception e) {
-            log.error("Error creating True/False exercise", e);
+            log.error("Error creating {} exercise", exerciseType.getName(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to create exercise: " + e.getMessage()));
         }
