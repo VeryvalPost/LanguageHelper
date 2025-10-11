@@ -1,17 +1,12 @@
-# --- Стадия сборки ---
+# Build stage
 FROM node:20-alpine AS build
 WORKDIR /app
-
 COPY package*.json ./
-
-# Устанавливаем и обычные, и dev-зависимости (нужно для vite build)
-RUN npm ci --include=dev
-
+RUN npm ci
 COPY . .
-
-# Собираем фронтенд
 RUN npm run build
 
+# Production stage
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/dist /usr/share/nginx/html
