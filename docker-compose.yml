@@ -1,6 +1,4 @@
 #Docker-compose
-version: '3.8'
-
 services:
   db:
     image: postgres:latest
@@ -35,7 +33,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/api/debug/test" ]
       interval: 30s
       timeout: 10s
       retries: 3
