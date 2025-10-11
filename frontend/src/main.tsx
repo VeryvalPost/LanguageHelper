@@ -6,14 +6,23 @@ import App from './App.tsx';
 import PublicExerciseView from './components/PublicExerciseView.tsx'; 
 import './index.css';
 
+// Способ 1: Используем абсолютный путь для public файлов
+const backgroundUrl = '/background.png';
+
+// Способ 2: Или импортируем через new URL (более надежно)
+// const backgroundUrl = new URL('../public/background.png', import.meta.url).href;
+
+document.body.style.backgroundImage = `url(${backgroundUrl})`;
+document.body.style.backgroundSize = 'cover';
+document.body.style.backgroundRepeat = 'no-repeat';
+document.body.style.backgroundPosition = 'center center';
+document.body.style.backgroundAttachment = 'fixed';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* 1. Публичный маршрут для упражнений. Он не будет проходить через логику App.tsx */}
         <Route path="/public/exercise/:uuid" element={<PublicExerciseView />} />
-
-        {/* 2. Все остальные маршруты (*) ведут на основной компонент App, который уже будет проверять авторизацию */}
         <Route path="/*" element={<App />} />
       </Routes>
     </BrowserRouter>
