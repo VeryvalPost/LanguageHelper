@@ -267,25 +267,25 @@ export default function PDFUpload({ onExerciseLoaded, onCreateTrueFalseExercise 
           <button
             onClick={() => handleCreateExerciseByType('/api/exercise/truefalse')}
             disabled={isUploading}
-            className="min-w-[230px] flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60">
+            className="min-w-[230px] flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-60">
             Создать упражнение True/False
           </button>
           <button
             onClick={() => handleCreateExerciseByType('/api/exercise/abcd')}
             disabled={isUploading}
-            className="min-w-[230px] flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-60">
+            className="min-w-[230px] flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-60">
             Создать ABCD questions по тексту
           </button>
           <button
             onClick={() => handleCreateExerciseByType('/api/exercise/open')}
             disabled={isUploading}
-            className="min-w-[230px] flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-60">
+            className="min-w-[230px] flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-60">
             Создать Open questions по тексту
           </button>
           <button
             onClick={() => handleCreateExerciseByType('/api/exercise/dialogue')}
             disabled={isUploading}
-            className="min-w-[230px] flex-1 px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-60">
+            className="min-w-[230px] flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-60">
             Создать диалог на любую тему
           </button>
         </div>

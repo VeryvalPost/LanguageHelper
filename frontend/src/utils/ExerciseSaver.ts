@@ -9,7 +9,7 @@ import { DatabaseExerciseUtils } from '../types/DatabaseExercise';
 export class ExerciseSaver {
   private static readonly PRIMARY_SAVE_ENDPOINT = '/api/exercise/save';
   private static readonly FALLBACK_SAVE_ENDPOINT = '/api/pdf/upload';
-  private static readonly BASE_URL = '/api';
+  private static readonly BASE_URL = '';
   
   // Отслеживание уже сохраненных упражнений для предотвращения дублирования
   private static savedExercises = new Set<string>();
@@ -130,7 +130,7 @@ export class ExerciseSaver {
       };
 
       const response = await fetchWithAuth(
-        `${this.BASE_URL}${this.PRIMARY_SAVE_ENDPOINT}`, 
+        `${this.PRIMARY_SAVE_ENDPOINT}`, 
         {
           method: 'POST',
           headers: {
@@ -172,7 +172,7 @@ export class ExerciseSaver {
       formData.append('exerciseData', JSON.stringify(exerciseData));
 
       const response = await fetchWithAuth(
-        `${this.BASE_URL}${this.FALLBACK_SAVE_ENDPOINT}`, 
+        `${this.FALLBACK_SAVE_ENDPOINT}`, 
         {
           method: 'POST',
           body: formData,
