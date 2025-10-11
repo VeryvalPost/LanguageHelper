@@ -27,6 +27,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SPRING_SECURITY_USER_PASSWORD: ${ADMIN_PASSWORD}
       TESSDATA_PREFIX: /usr/share/tessdata
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/language_helper
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
     ports:
       - "8080:8080"
     volumes:
@@ -34,6 +37,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: on-failure
 
   frontend:
@@ -44,7 +53,8 @@ services:
     environment:
       - VITE_API_URL=/api
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

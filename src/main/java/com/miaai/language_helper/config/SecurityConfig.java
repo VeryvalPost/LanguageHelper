@@ -43,10 +43,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**").permitAll()  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
-                        .requestMatchers("/api/me","/api/pdf/**", "/api/exercise/**","/api/history/**").authenticated()
+                        .requestMatchers("/api/health/**").permitAll()
+                        .requestMatchers("/api/debug/**").permitAll()
+                        .requestMatchers("/api/me", "/api/pdf/**", "/api/exercise/**", "/api/history/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -71,12 +74,11 @@ public class SecurityConfig {
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // Разрешаем credentials
-        configuration.setExposedHeaders(List.of("Authorization")); // Экспортируем заголовки
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration); // Применяем ко всем API endpoints
+        source.registerCorsConfiguration("/api/**", configuration);
         return source;
     }
-
 }
