@@ -17,7 +17,11 @@ public class ApiController {
 
     @GetMapping("/health")
     public ResponseEntity<?> health() {
-        return ResponseEntity.ok(Map.of("status", "UP", "timestamp", new Date()));
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("timestamp", new Date());
+        response.put("service", "Language Helper API");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/auth/me")
@@ -30,7 +34,27 @@ public class ApiController {
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("username", authentication.getName());
         userInfo.put("authenticated", true);
+        userInfo.put("authorities", authentication.getAuthorities());
 
         return ResponseEntity.ok(userInfo);
+    }
+
+    // Добавьте этот endpoint для публичного доступа (без аутентификации)
+    @GetMapping("/public/health")
+    public ResponseEntity<?> publicHealth() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("timestamp", new Date());
+        response.put("service", "Language Helper API - Public");
+        return ResponseEntity.ok(response);
+    }
+
+    // Endpoint для проверки что приложение готово (используется в healthcheck)
+    @GetMapping("/ready")
+    public ResponseEntity<?> ready() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "READY");
+        response.put("timestamp", new Date());
+        return ResponseEntity.ok(response);
     }
 }
