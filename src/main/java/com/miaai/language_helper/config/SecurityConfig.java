@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         // Публичные endpoint'ы
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/health", "/api/ready", "/api/debug/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
                         // GET /api/exercise/** — доступно с JWT
