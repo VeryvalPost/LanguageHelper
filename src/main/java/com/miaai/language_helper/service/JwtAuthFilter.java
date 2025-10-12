@@ -29,46 +29,47 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        final String requestURI = request.getRequestURI();
-        final String method = request.getMethod();
-
-        log.info("=== JWT FILTER START: {} {} ===", method, requestURI);
+        // Добавляем подробное логирование для диагностики
+        log.info("=== JWT FILTER DEBUG ===");
+        log.info("Request URI: {}", request.getRequestURI());
+        log.info("Request Method: {}", request.getMethod());
 
         // Пропускаем OPTIONS-запросы для CORS
-        if ("OPTIONS".equalsIgnoreCase(method)) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             log.info("Skipping OPTIONS request");
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Публичные endpoint'ы - пропускаем без проверки JWT
+        final String requestURI = request.getRequestURI();
+
+        // Публичные endpoint'ы
         if (isPublicEndpoint(requestURI)) {
-            log.info("Public endpoint - skipping JWT check");
+            log.info("Public endpoint - skipping JWT check: {}", requestURI);
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        log.info("Authorization header present: {}", authHeader != null);
+        log.info("Authorization header: {}", authHeader);
 
-        // Если endpoint требует аутентификации, но токена нет - возвращаем ошибку
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.warn("No Bearer token found for protected endpoint: {}", requestURI);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
+            filterChain.doFilter(request, response); // Spring Security сам вернёт 401/403 при необходимости
             return;
         }
 
         try {
             String token = authHeader.substring(7);
-            log.info("Token length: {}", token.length());
+            log.info("JWT token length: {}", token.length());
 
             String email = jwtService.extractEmail(token);
-            log.info("Extracted email: {}", email);
+            log.info("Extracted email from token: {}", email);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 log.info("Loading user details for: {}", email);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                log.info("User found: {}", userDetails.getUsername());
+                log.info("User details loaded successfully: {}", userDetails.getUsername());
 
                 if (jwtService.isTokenValid(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken =
@@ -78,35 +79,26 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     log.info("Authentication SUCCESS for: {}", email);
                 } else {
                     log.error("Token INVALID for: {}", email);
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT token");
-                    return;
                 }
             } else {
-                if (email == null) {
-                    log.error("Unable to extract email from token");
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unable to extract email from token");
-                    return;
-                }
-                log.info("User already authenticated");
+                log.warn("Email is null or user already authenticated");
             }
         } catch (Exception e) {
-            log.error("JWT processing error: {}", e.getMessage(), e);
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "JWT processing error: " + e.getMessage());
+            log.error("JWT processing error for {}: {}", requestURI, e.getMessage(), e);
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT");
             return;
         }
 
-        log.info("=== JWT FILTER END ===");
+        log.info("=== END JWT FILTER DEBUG ===");
         filterChain.doFilter(request, response);
     }
 
     private boolean isPublicEndpoint(String requestURI) {
         return requestURI.startsWith("/api/public/") ||
-                requestURI.equals("/api/authenticate") ||
-                requestURI.equals("/api/register") ||
+                requestURI.startsWith("/api/authenticate") ||
+                requestURI.startsWith("/api/register") ||
                 requestURI.startsWith("/api/health") ||
                 requestURI.startsWith("/api/ready") ||
-                requestURI.startsWith("/api/debug/") ||
-                // ВРЕМЕННО разрешаем все exercise endpoints без JWT
-                requestURI.startsWith("/api/exercise/");
+                requestURI.startsWith("/api/debug/");
     }
 }

@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/health", "/api/ready", "/api/debug/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
-                        .requestMatchers("/api/me", "/api/pdf/**", "/api/exercise/**", "/api/history/**").permitAll()
+                        .requestMatchers("/api/me", "/api/pdf/**", "/api/exercise/**", "/api/history/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
