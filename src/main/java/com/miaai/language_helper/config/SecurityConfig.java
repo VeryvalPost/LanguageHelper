@@ -65,21 +65,22 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+
         configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:80",
-                "http://95.81.126.8:80",
-                "http://95.81.126.8",
-                "https://95.81.126.8"
+                "http://localhost:*",      // локальная разработка
+                "http://127.0.0.1:*",
+                "http://95.81.126.8",      // прод без порта
+                "http://95.81.126.8:*",    // прод с портом 80 или другим
+                "https://95.81.126.8:*"    // если когда-нибудь добавишь HTTPS
         ));
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // теперь все API
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
