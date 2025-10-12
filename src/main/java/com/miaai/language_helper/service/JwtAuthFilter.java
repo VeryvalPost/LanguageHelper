@@ -29,52 +29,46 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // Добавляем подробное логирование для диагностики
-        log.info("=== JWT FILTER DEBUG ===");
-        log.info("Request URI: {}", request.getRequestURI());
-        log.info("Request Method: {}", request.getMethod());
+        final String requestURI = request.getRequestURI();
+        final String method = request.getMethod();
+
+        log.info("=== JWT FILTER START: {} {} ===", method, requestURI);
 
         // Пропускаем OPTIONS-запросы для CORS
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        if ("OPTIONS".equalsIgnoreCase(method)) {
             log.info("Skipping OPTIONS request");
             filterChain.doFilter(request, response);
             return;
         }
 
-        final String requestURI = request.getRequestURI();
-
-        // Публичные endpoint'ы
+        // Публичные endpoint'ы - пропускаем без проверки JWT
         if (isPublicEndpoint(requestURI)) {
-            log.info("Public endpoint - skipping JWT check: {}", requestURI);
+            log.info("Public endpoint - skipping JWT check");
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        log.info("Authorization header: {}", authHeader);
+        log.info("Authorization header present: {}", authHeader != null);
 
+        // Если endpoint требует аутентификации, но токена нет - возвращаем ошибку
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.warn("No Bearer token found for protected endpoint: {}", requestURI);
-            // Для API endpoints возвращаем 401, а не пропускаем дальше
-            if (requestURI.startsWith("/api/")) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
-                return;
-            }
-            filterChain.doFilter(request, response);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
             return;
         }
 
         try {
             String token = authHeader.substring(7);
-            log.info("JWT token length: {}", token.length());
+            log.info("Token length: {}", token.length());
 
             String email = jwtService.extractEmail(token);
-            log.info("Extracted email from token: {}", email);
+            log.info("Extracted email: {}", email);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 log.info("Loading user details for: {}", email);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                log.info("User details loaded successfully: {}", userDetails.getUsername());
+                log.info("User found: {}", userDetails.getUsername());
 
                 if (jwtService.isTokenValid(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken =
@@ -88,28 +82,31 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
             } else {
-                log.warn("Email is null or user already authenticated");
                 if (email == null) {
+                    log.error("Unable to extract email from token");
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unable to extract email from token");
                     return;
                 }
+                log.info("User already authenticated");
             }
         } catch (Exception e) {
-            log.error("JWT processing error for {}: {}", requestURI, e.getMessage(), e);
+            log.error("JWT processing error: {}", e.getMessage(), e);
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "JWT processing error: " + e.getMessage());
             return;
         }
 
-        log.info("=== END JWT FILTER DEBUG ===");
+        log.info("=== JWT FILTER END ===");
         filterChain.doFilter(request, response);
     }
 
     private boolean isPublicEndpoint(String requestURI) {
         return requestURI.startsWith("/api/public/") ||
-                requestURI.startsWith("/api/authenticate") ||
-                requestURI.startsWith("/api/register") ||
+                requestURI.equals("/api/authenticate") ||
+                requestURI.equals("/api/register") ||
                 requestURI.startsWith("/api/health") ||
                 requestURI.startsWith("/api/ready") ||
-                requestURI.startsWith("/api/debug/");
+                requestURI.startsWith("/api/debug/") ||
+                // ВРЕМЕННО разрешаем все exercise endpoints без JWT
+                requestURI.startsWith("/api/exercise/");
     }
 }
