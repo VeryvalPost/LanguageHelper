@@ -1,4 +1,4 @@
-/ src/config/api.config.ts
+// src/config/api.config.ts
 
 /**
  * Главный конфигурационный файл для взаимодействия с API.
