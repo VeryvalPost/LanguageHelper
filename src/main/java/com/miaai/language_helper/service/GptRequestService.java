@@ -330,8 +330,7 @@ public class GptRequestService {
             GenerationExerciseDto generationExerciseDto = objectMapper.readValue(jsonString, dtoClass);
             log.info("Created {} exercise: {}", exerciseType.getName(), generationExerciseDto);
 
-            ExerciseTableRecord exerciseRecord = ExerciseTableRecord.fromDto(generationExerciseDto, user);
-            exerciseRepository.save(exerciseRecord);
+            log.info("Generated exercise {} for user {}, not saving yet", exerciseType.getName(), user.getEmail());
 
             return generationExerciseDto;
         } catch (Exception e) {
@@ -369,14 +368,17 @@ public class GptRequestService {
     }
 
     private String removeDuplicateKey(String json, String key) {
+        int lastIndex = json.lastIndexOf("\"" + key + "\"");
+        if (lastIndex < 0) {
+            return json;
+        }
         int firstIndex = json.indexOf("\"" + key + "\"");
-        if (firstIndex < 0) {
+        if (firstIndex < 0 || firstIndex == lastIndex) {
             return json;
         }
-        int secondIndex = json.indexOf("\"" + key + "\"", firstIndex + 1);
-        if (secondIndex < 0) {
-            return json;
-        }
-        return json.replaceFirst(",?\\s*\\\"" + key + "\\\"\\s*:\\s*\\\"[^\\\"]*\\\"", "");
+
+        return json.substring(0, lastIndex)
+                .replaceAll(",?\\s*\\\"" + key + "\\\"\\s*:\\s*\\\"[^\\\"]*\\\"", "")
+                + json.substring(lastIndex);
     }
 }

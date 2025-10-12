@@ -1,4 +1,6 @@
 -- schema.sql
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 CREATE TABLE IF NOT EXISTS users (
                                      id BIGSERIAL PRIMARY KEY, -- Изменено с SERIAL на BIGSERIAL для соответствия Long
                                      username VARCHAR(50) NOT NULL,

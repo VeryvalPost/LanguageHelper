@@ -5,19 +5,54 @@ import MatchTheSentenceExercise from './components/MatchTheSentenceExercise';
 import TrueFalseExercise from './components/TrueFalseExercise';
 import AuthPage from './components/AuthPage';
 import Header from './components/Header';
-import type { Exercise } from './types/Exercise';
-import type { User } from './components/AuthPage';
-import type { DatabaseExercise, ExerciseTableRow } from './types/DatabaseExercise';
-import { DatabaseExerciseUtils } from './types/DatabaseExercise';
-import { getCurrentUser, logoutUser, isAuthenticated } from './utils/api';
-import { FileText, ListChecks, HelpCircle, Copy, CheckCircle, Lock, Unlock } from 'lucide-react';
-import { fetchWithAuth } from './utils/fetchWithAuth';
-import { API_CONFIG, getApiUrl } from './config/api';
 import ABCDExercise from './components/ABCDExercise';
 import OpenQuestionsExercise from './components/OpenQuestionsExercise';
 import DialogueExercise from './components/DialogueExercise';
+
+import type { Exercise } from './types/Exercise';
+import type { User } from './components/AuthPage';
+import type { DatabaseExercise, ExerciseTableRow } from './types/DatabaseExercise';
+
+import { DatabaseExerciseUtils } from './types/DatabaseExercise';
+
+
+// Safety wrapper for DatabaseExerciseUtils methods
+const safeDatabaseExerciseUtils = {
+  convertToTableRow: (dbExercise: DatabaseExercise) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return null;
+    }
+    return DatabaseExerciseUtils.convertToTableRow(dbExercise);
+  },
+  convertToExercise: (dbExercise?: DatabaseExercise | null) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return null;
+    }
+    return DatabaseExerciseUtils.convertToExercise(dbExercise);
+  },
+  generatePublicUrl: (uuid: string) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return '';
+    }
+    return DatabaseExerciseUtils.generatePublicUrl(uuid);
+  },
+  copyToClipboard: async (text: string) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return false;
+    }
+    return DatabaseExerciseUtils.copyToClipboard(text);
+  }
+};
+import { getCurrentUser, logoutUser, isAuthenticated } from './utils/api';
+import { fetchWithAuth } from './utils/fetchWithAuth';
+import { API_CONFIG, getApiUrl } from './config/api';
 import { ExerciseSaver } from './utils/ExerciseSaver';
 
+import { FileText, ListChecks, HelpCircle, Copy, CheckCircle, Lock, Unlock } from 'lucide-react';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,6 +65,7 @@ function App() {
   const [assignmentsError, setAssignmentsError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState<Record<string, boolean>>({});
 
+  // ------------------- Аутентификация -------------------
   const handleAuthSuccess = (authenticatedUser: User) => {
     setUser(authenticatedUser);
   };
@@ -41,11 +77,30 @@ function App() {
     logoutUser();
   };
 
+  // ------------------- Автосохранение -------------------
+  const enableAutoSave = true;
+
+  const autoSaveExercise = async (exerciseToSave: Exercise) => {
+    if (!enableAutoSave) return;
+    if (ExerciseSaver.isExerciseSaved(exerciseToSave)) return;
+
+    try {
+      const success = await ExerciseSaver.saveExerciseWithContext(exerciseToSave, {
+        source: 'api-generation',
+        isPublic: false,
+      });
+
+      if (success) console.log('Упражнение успешно автосохранено');
+      else console.warn('Автосохранение не удалось');
+    } catch (error) {
+      console.error('Ошибка автосохранения упражнения:', error);
+    }
+  };
+
   const handleExerciseLoaded = async (loadedExercise: Exercise) => {
     setExercise(loadedExercise);
     setShowTrueFalse(false);
-    // Автосохраняем каждое сгенерированное упражнение (для истории)
-    await ExerciseSaver.saveExerciseWithContext(loadedExercise, { source: 'api-generation' });
+    await autoSaveExercise(loadedExercise);
   };
 
   const handleReset = () => {
@@ -57,25 +112,20 @@ function App() {
     setShowTrueFalse(true);
   };
 
-  // Функции для работы с публичными ссылками
+  // ------------------- Публичные ссылки -------------------
   const handleCopyPublicLink = async (uuid: string) => {
-    const publicUrl = DatabaseExerciseUtils.generatePublicUrl(uuid);
-    const success = await DatabaseExerciseUtils.copyToClipboard(publicUrl);
-    
+    const publicUrl = safeDatabaseExerciseUtils.generatePublicUrl(uuid);
+    const success = await safeDatabaseExerciseUtils.copyToClipboard(publicUrl);
+
     if (success) {
       setCopySuccess(prev => ({ ...prev, [uuid]: true }));
-      setTimeout(() => {
-        setCopySuccess(prev => ({ ...prev, [uuid]: false }));
-      }, 2000);
+      setTimeout(() => setCopySuccess(prev => ({ ...prev, [uuid]: false })), 2000);
     }
   };
 
-  const handleTogglePublic = async (uuid: string, currentIsPublic: boolean | null) => {
-    console.log('Toggle:', { uuid, currentIsPublic });
+  const handleTogglePublic = async (uuid: string, currentIsPublic?: boolean) => {
     try {
       const newIsPublic = !(currentIsPublic ?? false);
-  
-      // Оптимистичный апдейт: Измени локально сразу
       const url = getApiUrl(API_CONFIG.ENDPOINTS.TOGGLE_EXERCISE_PUBLIC(uuid));
 
       const response = await fetchWithAuth(url, {
@@ -83,99 +133,92 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isPublic: newIsPublic }),
       });
-  
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed:', response.status, errorText);
-        // Откат оптимистичного апдейта
-        setTableRows(prev => prev.map(row => 
-          row.uuid === uuid ? { ...row, isPublic: !newIsPublic } : row
-        ));
-        throw new Error('Не удалось');
+        setTableRows(prev => prev.map(row => row.uuid === uuid ? { ...row, isPublic: !newIsPublic } : row));
+        throw new Error('Не удалось обновить публичность');
       }
-  
-      // Refetch для синха (если бэк изменил updatedAt или др.)
+
       await fetchAssignments();
-      console.log('Success');
     } catch (error) {
       console.error('Error:', error);
       alert('Ошибка: ' + (error as Error).message);
-      await fetchAssignments();  // Refetch anyway
+      await fetchAssignments();
     }
   };
 
- // 1. Загрузка списка заданий
-const fetchAssignments = async () => {
-  setIsAssignmentsLoading(true);
-  setAssignmentsError(null);
-  try {
-    const url = getApiUrl(API_CONFIG.ENDPOINTS.GET_TASKS_HISTORY);
-    const response = await fetchWithAuth(url, {
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' },
-    });
-    if (!response.ok) throw new Error('Ошибка загрузки истории');
-    const data: DatabaseExercise[] = await response.json();
-    
-    // Конвертируем данные для отображения в таблице
-    const rows = data
-      .map(dbExercise => DatabaseExerciseUtils.convertToTableRow(dbExercise))
-      .filter((row): row is ExerciseTableRow => row !== null);
-    setTableRows(rows);
-  } catch (e: any) {
-    setAssignmentsError(e.message || 'Ошибка загрузки');
-  } finally {
-    setIsAssignmentsLoading(false);
-  }
-};
+  // ------------------- Работа с заданиями -------------------
+  const fetchAssignments = async () => {
+    setIsAssignmentsLoading(true);
+    setAssignmentsError(null);
+    try {
+      const url = getApiUrl(API_CONFIG.ENDPOINTS.GET_TASKS_HISTORY);
+      const response = await fetchWithAuth(url, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Ошибка загрузки истории');
 
-// Добавить функции для открытия/закрытия модального окна
-const handleOpenAssignmentModal = () => {
-  setShowAssignmentModal(true);
-  fetchAssignments();
-};
-const handleCloseAssignmentModal = () => {
-  setShowAssignmentModal(false);
-};
-
-// 2. Загрузка конкретного задания
-const handleOpenAssignment = async (uuid: string) => {
-  try {
-    setIsLoading(true);
-    const url = getApiUrl(API_CONFIG.ENDPOINTS.GET_TASK_BY_UUID(uuid));
-    const response = await fetchWithAuth(url, {
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' },
-    });
-    if (!response.ok) throw new Error('Ошибка загрузки задания');
-    const data = await response.json();  
-    console.log('Full exercise data:', data);  
-
-    const exercise = DatabaseExerciseUtils.convertToExercise(data);  
-    if (exercise) {
-      setExercise(exercise);
-      setShowAssignmentModal(false);
-    } else {
-      console.error('Failed to parse:', data);
-      alert('Ошибка парсинга данных упражнения');
+      const data = (await response.json()) as DatabaseExercise[];
+      const rows = data
+        .map(safeDatabaseExerciseUtils.convertToTableRow)
+        .filter((row): row is ExerciseTableRow => row !== null && typeof row.uuid === 'string');
+      setTableRows(rows);
+    } catch (e: any) {
+      setAssignmentsError(e.message || 'Ошибка загрузки');
+    } finally {
+      setIsAssignmentsLoading(false);
     }
-  } catch (e: any) {
-    console.error('Error loading assignment:', e);
-    alert(e.message || 'Ошибка загрузки задания');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-  // Проверяем аутентификацию при загрузке приложения
+  const handleOpenAssignmentModal = () => {
+    setShowAssignmentModal(true);
+    fetchAssignments();
+  };
+  const handleCloseAssignmentModal = () => setShowAssignmentModal(false);
+
+  const handleOpenAssignment = async (uuid: string) => {
+    try {
+      setIsLoading(true);
+      const url = getApiUrl(API_CONFIG.ENDPOINTS.GET_TASK_BY_UUID(uuid));
+      const response = await fetchWithAuth(url, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Ошибка загрузки задания');
+
+      const data = await response.json();
+      if (!data || !data.exerciseData) {
+        console.error('Exercise data is missing', data);
+        alert('Ошибка: данные упражнения отсутствуют');
+        return;
+      }
+      console.log('Raw exercise data:', data);
+      const loadedExercise = safeDatabaseExerciseUtils.convertToExercise(data);
+      console.log('Raw exercise data:', data);
+      if (loadedExercise) {
+        setExercise(loadedExercise);
+        setShowAssignmentModal(false);
+        await autoSaveExercise(loadedExercise);
+      } else {
+        console.error('Failed to parse:', data);
+        alert('Ошибка парсинга данных упражнения');
+      }
+    } catch (e: any) {
+      console.error('Error loading assignment:', e);
+      alert(e.message || 'Ошибка загрузки задания');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ------------------- Проверка аутентификации -------------------
   useEffect(() => {
     const checkAuth = async () => {
       try {
         if (isAuthenticated()) {
           const currentUser = await getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-          }
+          if (currentUser) setUser(currentUser);
         }
       } catch (error) {
         console.error('Ошибка при проверке аутентификации:', error);
@@ -183,14 +226,13 @@ const handleOpenAssignment = async (uuid: string) => {
         setIsLoading(false);
       }
     };
-
     checkAuth();
   }, []);
 
-  // Показываем загрузку пока проверяем аутентификацию
+  // ------------------- Рендер -------------------
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Загрузка...</p>
@@ -199,12 +241,8 @@ const handleOpenAssignment = async (uuid: string) => {
     );
   }
 
-  // Если пользователь не авторизован, показываем страницу входа
-  if (!user) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
-  }
+  if (!user) return <AuthPage onAuthSuccess={handleAuthSuccess} />;
 
-  // Функция для рендера строки таблицы
   const renderAssignmentRow = (row: ExerciseTableRow) => {
     const typeIcon = row.type === 'Fill The Gaps'
       ? <FileText className="inline w-5 h-5 text-blue-500 mr-1" />
@@ -213,6 +251,7 @@ const handleOpenAssignment = async (uuid: string) => {
       : row.type === 'True/False'
       ? <HelpCircle className="inline w-5 h-5 text-yellow-500 mr-1" />
       : <FileText className="inline w-5 h-5 text-gray-400 mr-1" />;
+
     const typeColor = row.type === 'Fill The Gaps'
       ? 'text-blue-700 bg-blue-50'
       : row.type === 'Match The Sentence'
@@ -220,7 +259,9 @@ const handleOpenAssignment = async (uuid: string) => {
       : row.type === 'True/False'
       ? 'text-yellow-700 bg-yellow-50'
       : 'text-gray-700 bg-gray-50';
+
     const effectiveIsPublic = row.isPublic ?? false;
+
     return (
       <tr key={row.uuid} className="hover:bg-gray-50 transition">
         <td className={`border px-4 py-2 font-medium whitespace-nowrap`}>
@@ -254,36 +295,20 @@ const handleOpenAssignment = async (uuid: string) => {
             >
               Открыть
             </button>
-            
-            {/* Кнопка переключения публичности */}
             <button
               onClick={() => handleTogglePublic(row.uuid, row.isPublic)}
-              className={`p-2 rounded transition-colors ${
-                effectiveIsPublic
-                  ? 'text-green-600 hover:bg-green-100'
-                  : 'text-gray-400 hover:bg-gray-100'
-              }`}
+              className={`p-2 rounded transition-colors ${effectiveIsPublic ? 'text-green-600 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'}`}
               title={effectiveIsPublic ? 'Сделать приватным' : 'Сделать публичным'}
             >
               {effectiveIsPublic ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
             </button>
-            
-            {/* Кнопка копирования ссылки (только для публичных) */}
             {effectiveIsPublic && (
               <button
                 onClick={() => handleCopyPublicLink(row.uuid)}
-                className={`p-2 rounded transition-colors ${
-                  copySuccess[row.uuid]
-                    ? 'text-green-600 bg-green-100'
-                    : 'text-blue-600 hover:bg-blue-100'
-                }`}
+                className={`p-2 rounded transition-colors ${copySuccess[row.uuid] ? 'text-green-600 bg-green-100' : 'text-blue-600 hover:bg-blue-100'}`}
                 title="Копировать публичную ссылку"
               >
-                {copySuccess[row.uuid] ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
+                {copySuccess[row.uuid] ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </button>
             )}
           </div>
@@ -292,11 +317,9 @@ const handleOpenAssignment = async (uuid: string) => {
     );
   };
 
-  // Если пользователь авторизован, показываем основное приложение
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen">
       <Header user={user} onLogout={handleLogout} />
-      {/* Кнопка для открытия истории заданий (кроме demo) */}
       {user.id !== 'demo' && (
         <div className="container mx-auto px-4 mt-4 flex justify-end">
           <button
@@ -307,22 +330,12 @@ const handleOpenAssignment = async (uuid: string) => {
           </button>
         </div>
       )}
-      {/* Модальное окно с таблицей заданий */}
       {showAssignmentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-8 max-w-2xl w-full relative">
-            <button
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-              onClick={handleCloseAssignmentModal}
-            >
-              ×
-            </button>
+            <button className="absolute top-4 right-4 text-gray-500 hover:text-gray-700" onClick={handleCloseAssignmentModal}>×</button>
             <h2 className="text-2xl font-bold mb-4">Мои задания</h2>
-            {isAssignmentsLoading ? (
-              <div>Загрузка...</div>
-            ) : assignmentsError ? (
-              <div className="text-red-600">{assignmentsError}</div>
-            ) : (
+            {isAssignmentsLoading ? <div>Загрузка...</div> : assignmentsError ? <div className="text-red-600">{assignmentsError}</div> : (
               <div className="overflow-x-auto">
                 <table className="min-w-full border rounded-xl overflow-hidden shadow-sm bg-white">
                   <thead className="bg-gray-100">
@@ -346,28 +359,18 @@ const handleOpenAssignment = async (uuid: string) => {
           </div>
         </div>
       )}
-      
+
       <div className="container mx-auto px-4 py-8">
         {!exercise && !showTrueFalse ? (
           <PDFUpload onExerciseLoaded={handleExerciseLoaded} onCreateTrueFalseExercise={handleCreateTrueFalseExercise} />
         ) : exercise ? (
-          exercise.type === "Fill The Gaps" ? (
-            <FillTheGapsExercise exercise={exercise} onReset={handleReset} />
-          ) : exercise.type === "Match The Sentence" ? (
-            <MatchTheSentenceExercise exercise={exercise} onReset={handleReset} />
-          ) : exercise.type === "True/False" ? (
-            <TrueFalseExercise exercise={exercise} onReset={handleReset} />
-          ) : exercise.type === "ABCD" ? (
-            <ABCDExercise exercise={exercise} onReset={handleReset} />
-          ) : exercise.type === "Open Questions" ? (
-            <OpenQuestionsExercise exercise={exercise} onReset={handleReset} />
-          ) : exercise.type === "Dialogue" ? (
-            <DialogueExercise exercise={exercise} onReset={handleReset} />
-          ) : (
-            <div className="text-center text-red-600 font-bold">
-              Неизвестный тип упражнения: {exercise.type}
-            </div>
-          )
+          exercise.type === "Fill The Gaps" ? <FillTheGapsExercise exercise={exercise} onReset={handleReset} /> :
+          exercise.type === "Match The Sentence" ? <MatchTheSentenceExercise exercise={exercise} onReset={handleReset} /> :
+          exercise.type === "True/False" ? <TrueFalseExercise exercise={exercise} onReset={handleReset} /> :
+          exercise.type === "ABCD" ? <ABCDExercise exercise={exercise} onReset={handleReset} /> :
+          exercise.type === "Open Questions" ? <OpenQuestionsExercise exercise={exercise} onReset={handleReset} /> :
+          exercise.type === "Dialogue" ? <DialogueExercise exercise={exercise} onReset={handleReset} /> :
+          <div className="text-center text-red-600 font-bold">Неизвестный тип упражнения: {exercise.type}</div>
         ) : showTrueFalse ? (
           <TrueFalseExercise onExerciseLoaded={handleExerciseLoaded} onReset={handleReset} />
         ) : null}

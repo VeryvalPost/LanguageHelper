@@ -93,6 +93,13 @@ export class DatabaseExerciseUtils {
    */
   static convertToTableRow(dbExercise: DatabaseExercise): ExerciseTableRow | null {
     if (!dbExercise) return null;
+    
+    // Safety check to prevent "Cannot read properties of undefined" error
+    if (!this.parseExerciseData) {
+      console.error('parseExerciseData method is not available');
+      return null;
+    }
+    
     const parsedData = this.parseExerciseData(dbExercise.exerciseData);
     if (!parsedData) return null;
     const rawIsPublic = dbExercise.isPublic ?? dbExercise.is_public ?? dbExercise.public;
@@ -120,10 +127,21 @@ export class DatabaseExerciseUtils {
   /**
    * Конвертирует данные из БД в формат Exercise для компонентов
    */
-  static convertToExercise(dbExercise: DatabaseExercise): Exercise | null {
+  static convertToExercise(dbExercise?: DatabaseExercise | null): Exercise | null {
+    if (!dbExercise || !dbExercise.exerciseData) {
+      console.warn('convertToExercise: dbExercise or exerciseData is missing', dbExercise);
+      return null;
+    }
+  
+    // Safety check to prevent "Cannot read properties of undefined" error
+    if (!this.parseExerciseData) {
+      console.error('parseExerciseData method is not available');
+      return null;
+    }
+  
     const parsedData = this.parseExerciseData(dbExercise.exerciseData);
     if (!parsedData) return null;
-
+  
     return {
       type: parsedData.type,
       questions: parsedData.questions,

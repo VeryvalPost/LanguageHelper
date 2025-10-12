@@ -1,47 +1,55 @@
-#Docker-compose
 version: '3.8'
 
 services:
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: postgres-db
+    env_file: .env
     environment:
-      POSTGRES_DB: language_helper
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: [ "postgres", "-c", "ssl=off", "-c", "password_encryption=scram-sha-256" ]
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # временно убираем healthcheck
-    # healthcheck:
-    #   test: ["CMD-SHELL", "pg_isready -U postgres -d language_helper"]
-    #   interval: 10s
-    #   timeout: 10s
-    #   retries: 15
-    #   start_period: 30s
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   app:
     build: .
     container_name: language-helper-app
+    env_file: .env
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      API_KEY: ${API_KEY}
-      JWT_SECRET: ${JWT_SECRET}
-      SPRING_SECURITY_USER_PASSWORD: ${ADMIN_PASSWORD}
-      TESSDATA_PREFIX: /usr/share/tessdata
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - API_KEY=${API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - SPRING_SECURITY_USER_PASSWORD=${ADMIN_PASSWORD}
+      - TESSDATA_PREFIX=/usr/share/tessdata
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}?sslmode=disable
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "8080:8080"
     volumes:
       - ./tessdata:/usr/share/tessdata:ro
     depends_on:
       db:
-        condition: service_started   # чтобы дождаться хотя бы старта БД
-    # временно убираем healthcheck
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
-    #   interval: 15s
-    #   timeout: 5s
-    #   retries: 5
-    #   start_period: 20s
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: on-failure
 
   frontend:
@@ -53,7 +61,7 @@ services:
       - VITE_API_URL=/api
     depends_on:
       app:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

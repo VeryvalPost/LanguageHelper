@@ -29,48 +29,43 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        // Пропускаем OPTIONS-запросы для CORS
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String requestURI = request.getRequestURI();
 
-        // 🔹 Пропускаем публичные endpoint'ы
+        // Публичные endpoint'ы
         if (isPublicEndpoint(requestURI)) {
-            log.debug("Skipping JWT filter for public endpoint: {}", requestURI);
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        log.debug("Request to: {} - Authorization header: {}", requestURI, authHeader);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            // 🔹 Не блокируем, просто пропускаем — Spring Security сам проверит доступ
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response); // Spring Security сам вернёт 401/403 при необходимости
             return;
         }
 
         try {
             String token = authHeader.substring(7);
             String email = jwtService.extractEmail(token);
-            log.debug("Extracted email from token: {}", email);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                log.debug("User authorities: {}", userDetails.getAuthorities());
 
                 if (jwtService.isTokenValid(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.debug("Authentication set successfully for user: {}", email);
                 }
             }
         } catch (Exception e) {
             log.error("JWT processing error for {}: {}", requestURI, e.getMessage(), e);
-            // 🔹 При ошибке всё равно возвращаем 403
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT");
             return;
         }
@@ -79,7 +74,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicEndpoint(String requestURI) {
-        return requestURI.startsWith("/api/public/") ||       // ✅ теперь публичные не проверяются
+        return requestURI.startsWith("/api/public/") ||
                 requestURI.startsWith("/api/authenticate") ||
                 requestURI.startsWith("/api/register");
     }

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,20 +45,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/api/ready").permitAll()
-                        .requestMatchers("/api/debug/**").permitAll()
-                        .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // Публичные endpoint'ы
+                        .requestMatchers("/api/health", "/api/ready", "/api/debug/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
+                        // GET /api/exercise/** — доступно с JWT
+                        .requestMatchers(HttpMethod.GET, "/api/exercise/**").authenticated()
+                        // Остальные методы /api/exercise/** требуют JWT
                         .requestMatchers("/api/me", "/api/pdf/**", "/api/exercise/**", "/api/history/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-        if (!"docker".equals(activeProfile)) {
-            http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        }
+        // Always add JWT filter for authentication
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -73,13 +73,13 @@ public class SecurityConfig {
                 "http://95.81.126.8",
                 "https://95.81.126.8"
         ));
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // теперь все API
         return source;
     }
 }

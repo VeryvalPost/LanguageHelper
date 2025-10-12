@@ -2,6 +2,18 @@ import { fetchWithAuth } from './fetchWithAuth';
 import type { Exercise } from '../types/Exercise';
 import { DatabaseExerciseUtils } from '../types/DatabaseExercise';
 
+
+// Safety wrapper for DatabaseExerciseUtils methods
+const safeDatabaseExerciseUtils = {
+  validateExercise: (exercise: Exercise) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return { isValid: false, errors: ['DatabaseExerciseUtils is not available'] };
+    }
+    return DatabaseExerciseUtils.validateExercise(exercise);
+  }
+};
+
 /**
  * Класс для управления сохранением упражнений в базу данных
  * Поддерживает различные стратегии сохранения и fallback механизмы
@@ -199,7 +211,7 @@ export class ExerciseSaver {
     context: ExerciseContext = {}
   ): Promise<boolean> {
     // Валидируем упражнение перед сохранением
-    const validation = DatabaseExerciseUtils.validateExercise(exercise);
+    const validation = safeDatabaseExerciseUtils.validateExercise(exercise);
     if (!validation.isValid) {
       console.error('Exercise validation failed:', validation.errors);
       return false;

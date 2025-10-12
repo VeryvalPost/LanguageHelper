@@ -3,9 +3,37 @@ import { useParams } from 'react-router-dom';
 import FillTheGapsExercise from './FillTheGapsExercise';
 import MatchTheSentenceExercise from './MatchTheSentenceExercise';
 import TrueFalseExercise from './TrueFalseExercise';
+import OpenQuestionsExercise from './OpenQuestionsExercise';
+import ABCDExercise from './ABCDExercise';
+import DialogueExercise from './DialogueExercise';
 import type { Exercise } from '../types/Exercise';
 import type { DatabaseExercise } from '../types/DatabaseExercise';
 import { DatabaseExerciseUtils } from '../types/DatabaseExercise';
+
+// Safety wrapper for DatabaseExerciseUtils methods
+const safeDatabaseExerciseUtils = {
+  convertToExercise: (dbExercise?: DatabaseExercise | null) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return null;
+    }
+    return DatabaseExerciseUtils.convertToExercise(dbExercise);
+  },
+  generatePublicUrl: (uuid: string) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return '';
+    }
+    return DatabaseExerciseUtils.generatePublicUrl(uuid);
+  },
+  copyToClipboard: async (text: string) => {
+    if (!DatabaseExerciseUtils) {
+      console.error('DatabaseExerciseUtils is not available');
+      return false;
+    }
+    return DatabaseExerciseUtils.copyToClipboard(text);
+  }
+};
 import { fetchWithAuth } from '../utils/fetchWithAuth';
 import { API_CONFIG, getApiUrl  } from '../config/api';
 import { ArrowLeft, Share2, Copy, CheckCircle, XCircle } from 'lucide-react';
@@ -61,6 +89,11 @@ export default function PublicExerciseView() {
         ? JSON.parse(data.exerciseData) // Если это строка, парсим
         : data.exerciseData;            // Если уже объект, используем как есть
   
+      // Исправляем дублирование поля type (если есть)
+      if (exerciseData && Array.isArray(exerciseData.type)) {
+        exerciseData.type = exerciseData.type[0]; // Берем первое значение
+      }
+      
       // Проверяем, что внутри exerciseData есть все необходимое
       if (exerciseData && exerciseData.type && exerciseData.questions && exerciseData.answers) {
         setExercise(exerciseData); // Устанавливаем упражнение в state
@@ -78,8 +111,8 @@ export default function PublicExerciseView() {
 
   const handleCopyLink = async () => {
     if (uuid) {
-      const publicUrl = DatabaseExerciseUtils.generatePublicUrl(uuid);
-      const success = await DatabaseExerciseUtils.copyToClipboard(publicUrl);
+      const publicUrl = safeDatabaseExerciseUtils.generatePublicUrl(uuid);
+      const success = await safeDatabaseExerciseUtils.copyToClipboard(publicUrl);
       
       if (success) {
         setCopySuccess(true);
@@ -94,7 +127,7 @@ export default function PublicExerciseView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 mx-auto mb-4"></div>
           <div className="text-lg text-gray-700">Загрузка упражнения...</div>
@@ -105,7 +138,7 @@ export default function PublicExerciseView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
           <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Ошибка</h1>
@@ -123,7 +156,7 @@ export default function PublicExerciseView() {
 
   if (!exercise) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Упражнение не найдено</h1>
           <button
@@ -138,7 +171,7 @@ export default function PublicExerciseView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen">
       {/* Заголовок с кнопками */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -198,6 +231,12 @@ export default function PublicExerciseView() {
           <MatchTheSentenceExercise exercise={exercise} onReset={() => {}} />
         ) : exercise.type === "True/False" ? (
           <TrueFalseExercise exercise={exercise} onReset={() => {}} />
+        ) : exercise.type === "Open Questions" ? (
+          <OpenQuestionsExercise exercise={exercise} onReset={() => {}} />
+        ) : exercise.type === "ABCD" ? (
+          <ABCDExercise exercise={exercise} onReset={() => {}} />
+        ) : exercise.type === "Dialogue" ? (
+          <DialogueExercise exercise={exercise} onReset={() => {}} />
         ) : (
           <div className="text-center text-red-600 font-bold">
             Неизвестный тип упражнения: {exercise.type}
