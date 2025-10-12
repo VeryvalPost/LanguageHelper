@@ -49,9 +49,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/health", "/api/ready", "/api/debug/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/authenticate", "/api/register").permitAll()
-                        // GET /api/exercise/** — доступно с JWT
-                        .requestMatchers(HttpMethod.GET, "/api/exercise/**").authenticated()
-                        // Остальные методы /api/exercise/** требуют JWT
                         .requestMatchers("/api/me", "/api/pdf/**", "/api/exercise/**", "/api/history/**").authenticated()
                         .anyRequest().authenticated()
                 )
