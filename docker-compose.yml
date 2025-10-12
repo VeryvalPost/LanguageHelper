@@ -44,7 +44,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
+    #healthcheck:
       #disable: true
       #test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       #interval: 10s
