@@ -55,7 +55,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.warn("No Bearer token found for protected endpoint: {}", requestURI);
-            filterChain.doFilter(request, response); // Spring Security сам вернёт 401/403 при необходимости
+            // Для API endpoints возвращаем 401, а не пропускаем дальше
+            if (requestURI.startsWith("/api/")) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
+                return;
+            }
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -79,13 +84,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     log.info("Authentication SUCCESS for: {}", email);
                 } else {
                     log.error("Token INVALID for: {}", email);
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT token");
+                    return;
                 }
             } else {
                 log.warn("Email is null or user already authenticated");
+                if (email == null) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unable to extract email from token");
+                    return;
+                }
             }
         } catch (Exception e) {
             log.error("JWT processing error for {}: {}", requestURI, e.getMessage(), e);
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "JWT processing error: " + e.getMessage());
             return;
         }
 

@@ -1,3 +1,4 @@
+// utils/api.ts
 import { User } from '../components/AuthPage';
 import { API_CONFIG, getApiUrl } from '../config/api';
 
@@ -24,10 +25,16 @@ export const isAuthenticated = (): boolean => {
 // Функция для создания заголовков с токеном авторизации
 export const getAuthHeaders = (): HeadersInit => {
   const token = getAuthToken();
-  return {
-    ...API_CONFIG.DEFAULT_HEADERS,
-    ...(token && { 'Authorization': `Bearer ${token}` }),
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
 };
 
 // Функция для обработки ответов API
@@ -67,14 +74,20 @@ const handleApiResponse = async (response: Response): Promise<any> => {
     throw new Error(errorMessage);
   }
   
-  return response.json();
+  // Для ответов без тела (например, 204 No Content)
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  } else {
+    return null;
+  }
 };
 
 // Функция для входа пользователя
 export const authenticateUser = async (email: string, password: string): Promise<User> => {
   const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.AUTHENTICATE), {
     method: 'POST',
-    headers: API_CONFIG.DEFAULT_HEADERS,
+    headers: getAuthHeaders(),
     body: JSON.stringify({ email, password }),
   });
 
@@ -84,10 +97,10 @@ export const authenticateUser = async (email: string, password: string): Promise
     id: userData.id || userData.userId,
     email: userData.email,
     username: userData.name || userData.username,
-    token: userData.token || userData.token,
+    token: userData.token || userData.accessToken,
   };
 
-  console.log(user);
+  console.log('Authenticated user:', user);
 
   // Сохраняем токен
   if (user.token) {
@@ -101,7 +114,7 @@ export const authenticateUser = async (email: string, password: string): Promise
 export const registerUser = async (username: string, email: string, password: string): Promise<User> => {
   const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.REGISTER), {
     method: 'POST',
-    headers: API_CONFIG.DEFAULT_HEADERS,
+    headers: getAuthHeaders(),
     body: JSON.stringify({ username, email, password }),
   });
 
@@ -128,7 +141,7 @@ export const logoutUser = async (): Promise<void> => {
   
   if (token) {
     try {
-      // Пытаемся вызвать API для logout
+      // Пытаемся вызвать API для logout, если endpoint существует
       await fetch(getApiUrl(API_CONFIG.ENDPOINTS.LOGOUT), {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -166,4 +179,32 @@ export const getCurrentUser = async (): Promise<User | null> => {
     removeAuthToken();
     return null;
   }
+};
+
+// Универсальная функция для API запросов с аутентификацией
+export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const authHeaders = getAuthHeaders();
+  
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      ...authHeaders,
+      ...options.headers,
+    },
+    credentials: 'include', // Важно для CORS с куками
+  };
+
+  console.log('[fetchWithAuth] URL:', url);
+  console.log('[fetchWithAuth] Method:', config.method || 'GET');
+  console.log('[fetchWithAuth] Headers:', config.headers);
+
+  const response = await fetch(url, config);
+  
+  if (response.status === 401 || response.status === 403) {
+    // Токен невалидный - удаляем его
+    removeAuthToken();
+    throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
+  }
+  
+  return response;
 };

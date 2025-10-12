@@ -1,4 +1,4 @@
-// src/config/api.config.ts
+/ src/config/api.config.ts
 
 /**
  * Главный конфигурационный файл для взаимодействия с API.
@@ -8,10 +8,9 @@
 export const API_CONFIG = {
   /**
    * Базовый URL для всех запросов к API.
-   * Использует переменную окружения Vite (VITE_API_URL).
-   * Если переменная не задана, используется значение по умолчанию для локальной разработки.
+   * Используем относительные пути для избежания проблем с HTTP/HTTPS.
    */
-  BASE_URL: import.meta.env.VITE_API_URL || '/api',
+  BASE_URL: '',
 
   /**
    * Коллекция эндпоинтов API.
@@ -20,18 +19,22 @@ export const API_CONFIG = {
    */
   ENDPOINTS: {
     // --- Аутентификация ---
-    AUTHENTICATE: '/authenticate',
-    REGISTER: '/register',
-    LOGOUT: '/logout',
-    ME: '/me',
+    AUTHENTICATE: '/api/authenticate',
+    REGISTER: '/api/register',
+    LOGOUT: '/api/logout',
+    ME: '/api/me',
 
     // --- Упражнения (приватные, для авторизованных пользователей) ---
-    GET_TASKS_HISTORY: '/history/getTasks',
-    GET_TASK_BY_UUID: (uuid: string) => `/history/getTask/${uuid}`,
-    TOGGLE_EXERCISE_PUBLIC: (uuid: string) => `/exercise/${uuid}/toggle-public`,
+    GET_TASKS_HISTORY: '/api/history/getTasks',
+    GET_TASK_BY_UUID: (uuid: string) => `/api/history/getTask/${uuid}`,
+    TOGGLE_EXERCISE_PUBLIC: (uuid: string) => `/api/history/togglePublic/${uuid}`,
 
     // --- Упражнения (публичные) ---
-    GET_PUBLIC_EXERCISE_BY_UUID: (uuid: string) => `/public/exercise/${uuid}`,
+    GET_PUBLIC_EXERCISE_BY_UUID: (uuid: string) => `/api/public/exercise/${uuid}`,
+
+    // --- Генерация упражнений ---
+    EXERCISE: '/api/exercise',
+    EXERCISE_ABCD: '/api/exercise/abcd',
   },
 
   /**
@@ -50,9 +53,10 @@ export const API_CONFIG = {
 
 /**
  * Вспомогательная функция для получения полного URL эндпоинта.
- * @param endpoint - Путь из API_CONFIG.ENDPOINTS (например, '/authenticate' или результат вызова функции, как `API_CONFIG.ENDPOINTS.GET_TASK_BY_UUID('some-id')`)
- * @returns Полный URL для запроса (например, 'http://localhost:8080/api/authenticate')
+ * @param endpoint - Путь из API_CONFIG.ENDPOINTS (например, '/api/authenticate' или результат вызова функции, как `API_CONFIG.ENDPOINTS.GET_TASK_BY_UUID('some-id')`)
+ * @returns Полный URL для запроса (например, '/api/authenticate')
  */
 export const getApiUrl = (endpoint: string): string => {
-  return `${API_CONFIG.BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  // Используем относительные пути для избежания проблем с HTTP/HTTPS
+  return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 };
